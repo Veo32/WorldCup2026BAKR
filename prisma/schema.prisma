@@ -1,0 +1,48 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ⚽ جدول حفظ التحليلات والتوقعات للمباريات
+model Prediction {
+  id             String   @id @default(uuid())
+  matchName      String   // اسم المباراة (مثل: الولايات المتحدة ضد باراغواي)
+  analysisResult String   // النص الكامل للتحليل الصادر من الذكاء الاصطناعي
+  
+  // -- ميزات التتبع والأتمتة المضافة --
+  modelUsed      String   // الموديل الذي نجح في التحليل (مثل: gemini-1.5-pro)
+  language       String   @default("EN") // تصنيف لغة الإصدار لتسهيل النشر على المنصات الرقمية وتخطي القيود
+  isPdfGenerated Boolean  @default(false) // هل تم توليد ملف الـ PDF السينمائي لهذه المباراة؟
+  postedToTg     Boolean  @default(false) // هل تم النشر بنجاح على تيليجرام؟
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([matchName]) // تسريع البحث عن المباريات لمنع التكرار
+}
+
+// 📊 جدول إحصائيات القناة ولوحة التحكم (Dashboard Stats)
+model ChannelStat {
+  id           String   @id @default(uuid())
+  totalMatches Int      @default(0)
+  successRate  Float    @default(0.0)
+  activeUsers  Int      @default(0)
+  updatedAt    DateTime @updatedAt
+}
+
+// 💰 (جديد) جدول المبيعات والعمليات لتتبع مشترين تقارير الـ PDF من Gumroad
+model Transaction {
+  id             String   @id @default(uuid())
+  buyerEmail     String   // بريد المشتري لإرسال التحديثات لاحقاً
+  gumroadSaleId  String   @unique // رقم عملية الدفع من جمرود لمنع التكرار
+  productName    String   // اسم التقرير المباع
+  amountPaid     Float    // المبلغ المدفوع
+  
+  createdAt      DateTime @default(now())
+}

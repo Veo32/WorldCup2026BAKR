@@ -1,0 +1,30 @@
+  datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+  }
+
+  generator client {
+    provider = "prisma-client-js"
+  }
+
+  // ⚽ جدول حفظ التحليلات والتوقعات للمباريات
+  model Prediction {
+    id             String   @id @default(uuid())
+    matchName      String   // اسم المباراة (مثل: الولايات المتحدة ضد باراغواي)
+    analysisResult String   // النص الكامل للتحليل الصادر من Gemini
+    postedToTg     Boolean  @default(false) // هل تم النشر بنجاح على تيليجرام؟
+    modelUsed      String   // الموديل الذي نجح في التحليل (مثال: gemini-1.5-pro)
+    createdAt      DateTime @default(now())
+    updatedAt      DateTime @updatedAt
+
+    @@index([matchName]) // تسريع البحث عن المباريات لمنع التكرار
+  }
+
+  // 📊 جدول إحصائيات القناة ولوحة التحكم (Dashboard Stats)
+  model ChannelStat {
+    id           String   @id @default(uuid())
+    totalMatches Int      @default(0)
+    successRate  Float    @default(0.0)
+    activeUsers  Int      @default(0)
+    updatedAt    DateTime @updatedAt
+  }
