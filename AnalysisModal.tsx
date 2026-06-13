@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckIcon, LockClosedIcon } from '@heroicons/react/20/solid';
+import { CheckIcon, LockClosedIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/20/solid';
 
 interface AnalysisModalProps {
   isOpen: boolean;
@@ -10,6 +10,19 @@ interface AnalysisModalProps {
 
 export default function AnalysisModal({ isOpen, onClose, matchId, matchName }: AnalysisModalProps) {
   const [loading, setLoading] = useState(false);
+
+  // دالة التعامل مع الانتقال المباشر لـ Gumroad بحقن رقم وهمي عشوائي لمنع أي تعليق
+  const handleProClick = (explicitChatId?: string) => {
+    // 1. استخدام الآيدي الممرر أو توليد رقم عشوائي فوري يشبه آيدي التليجرام
+    const chatId = explicitChatId || Math.floor(1000000000 + Math.random() * 9000000000).toString();
+    console.log("المنظومة الذكية - تم توجيه العميل بالمعرف:", chatId);
+
+    // 2. بناء الرابط الذكي بالرقم الجديد لمنتج Gumroad الفعلي الخاص بك
+    const gumroadUrl = `https://veoquest6.gumroad.com/l/yfhmbt?custom_fields[telegram_chat_id]=${chatId}`;
+    
+    // 3. فتح بوابة الدفع فوراً في تبويب جديد دون انتظار
+    window.open(gumroadUrl, "_blank");
+  };
 
   // إدراج سكربت تليجرام الرسمي ديناميكياً لتوليد زر تسجيل الدخول الموثق
   useEffect(() => {
@@ -22,7 +35,7 @@ export default function AnalysisModal({ isOpen, onClose, matchId, matchName }: A
     const script = document.createElement('script');
     script.src = "https://telegram.org/js/telegram-widget.js?22";
     
-    // ✅ تم تحديث المعرف النهائي لاسم البوت الفعلي والنشط الخاص بك
+    // ✅ معرف اسم البوت الفعلي والنشط الخاص بك
     script.setAttribute('data-telegram-login', 'bakrnew007_bot'); 
     
     script.setAttribute('data-size', 'large');
@@ -50,9 +63,9 @@ export default function AnalysisModal({ isOpen, onClose, matchId, matchName }: A
           alert('تم ربط حسابك وتوليد التحليل بنجاح! تفقد حسابك على تليجرام الآن.');
           onClose();
         } else if (data.redirectToPayment) {
-          // 🌟 عرض العبارة السحرية المحفزة القادمة من السيرفر قبل الانتقال لبوابة الدفع Gumroad
+          // 🌟 عرض العبارة السحرية المحفزة وتمرير الـ ID الفعلي المستخرج من تليجرام إلى دالة الدفع
           alert(data.message || 'جاري توجيهك لصفحة الدفع لترقية الحساب وكشف أسرار المواجهة...');
-          window.location.href = data.stripeUrl; // يحتوي المتغير على رابط منتج Gumroad مع الـ Chat ID المخصص
+          handleProClick(user?.id?.toString());
         }
       } catch (error) {
         console.error('Error during auth:', error);
@@ -101,12 +114,24 @@ export default function AnalysisModal({ isOpen, onClose, matchId, matchName }: A
 
         {/* منطقة تفعيل الوجت والـ الأزرار الإجرائية */}
         <div className="mt-8 space-y-4">
-          <div className="text-center text-xs text-slate-500 mb-2">
-            سجل دخولك بالتليجرام لمرة واحدة لربط البوت واستلام تحليلك فوراً:
+          <div className="text-center text-xs text-slate-400 mb-2">
+            سجل دخولك بالتليجرام لربط البوت واستلام تحليلك فوراً:
           </div>
           
           {/* حاوية حقن زر تليجرام الرسمي الخارجي */}
           <div id="telegram-login-container" className="flex justify-center min-h-[40px]"></div>
+
+          {/* زر بديل فوري للمرور السريع في حال التصفح الخفي أو المشاكل الأمنية بالمتصفح */}
+          <div className="text-center pt-2">
+            <span className="text-xs text-slate-500 block mb-2">أو انتقل مباشرة للدفع والتفعيل السريع برقم وهمي مؤقت:</span>
+            <button 
+              onClick={() => handleProClick()}
+              className="mx-auto flex items-center gap-2 justify-center w-full px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-amber-500/10 active:scale-[0.98]"
+            >
+              <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+              الاشتراك الفوري عبر Gumroad 
+            </button>
+          </div>
 
           {loading && (
             <div className="text-center text-sm text-emerald-400 animate-pulse mt-2">
@@ -115,7 +140,7 @@ export default function AnalysisModal({ isOpen, onClose, matchId, matchName }: A
           )}
 
           <div className="flex gap-3 mt-4 text-xs text-slate-500 justify-center border-t border-slate-800/60 pt-4">
-            <span>🔒 اتصال آمن وموثق رسمياً عبر تليجرام</span>
+            <span>🔒 اتصال آمن وموثق سحابياً</span>
           </div>
         </div>
       </div>
