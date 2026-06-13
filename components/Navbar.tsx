@@ -8,7 +8,6 @@ export default function Navbar() {
         
         {/* Logo Section */}
         <Link href="/" className="text-2xl font-bold tracking-wider flex items-center gap-3">
-          {/* صورة الشعار */}
           <div className="relative w-10 h-10 flex-shrink-0">
             <Image 
               src="/logo.png" 
@@ -34,7 +33,6 @@ export default function Navbar() {
             الترتيب
           </Link>
         </div>
-        
       </div>
     </nav>
   );
