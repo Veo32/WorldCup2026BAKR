@@ -1,6 +1,6 @@
-import { GoogleGenAI } from '@google/genai'; // أو المكتبة التي تستخدمها حالياً لـ Gemini
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// 1. تجميع المفاتيح المتاحة في مصفوفة (تنظيف القيم الفارغة)
+// 1. تجميع المفاتيح المتاحة في مصفوفة
 const GEMINI_KEYS = [
   process.env.GEMINI_API_KEY,
   process.env.GEMINI_API_KEY_BACKUP_1,
@@ -9,49 +9,52 @@ const GEMINI_KEYS = [
 
 // 2. تجميع الموديلات وترتيبها حسب الأولوية
 const GEMINI_MODELS = [
-  process.env.GEMINI_PRIMARY_MODEL || "gemini-1.5-pro",
-  process.env.GEMINI_SECONDARY_MODEL || "gemini-2.5-flash",
-  process.env.GEMINI_TERTIARY_MODEL || "gemini-1.5-flash"
+  process.env.GEMINI_PRIMARY_MODEL || "gemini-1.5-flash",
+  process.env.GEMINI_SECONDARY_MODEL || "gemini-1.5-pro",
+  process.env.GEMINI_TERTIARY_MODEL || "gemini-flash-latest"
 ];
 
 export async function generateMatchAnalysis(prompt: string): Promise<string> {
   // دوران على الموديلات بالترتيب (Fallback Chain)
-  for (const model of GEMINI_MODELS) {
-    // دوران على المفاتيح المتاحة لكل موديل قبل الاستسلام للـ Quota
+  for (const modelName of GEMINI_MODELS) {
+    // دوران على المفاتيح المتاحة لكل موديل
     for (let keyIndex = 0; keyIndex < GEMINI_KEYS.length; keyIndex++) {
       const currentKey = GEMINI_KEYS[keyIndex];
       
       try {
-        console.log(`🤖 [AI Engine] Trying Model: ${model} with Key Index: ${keyIndex}`);
+        console.log(`🤖 [AI Engine] Trying Model: ${modelName} with Key Index: ${keyIndex}`);
         
-        // تهيئة الـ Client بالمفتاح الحالي
-        const ai = new GoogleGenAI({ apiKey: currentKey });
+        // تهيئة الـ Client باستخدام المكتبة الرسمية
+        const genAI = new GoogleGenerativeAI(currentKey);
+        const model = genAI.getGenerativeModel({ model: modelName });
         
-        const response = await ai.models.generateContent({
-          model: model,
-          contents: prompt,
-        });
+        // تنفيذ الطلب
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
 
-        if (response && response.text) {
-          console.log(`✅ [AI Engine] Success using Model: ${model} (Key Index: ${keyIndex})`);
-          return response.text;
+        if (text) {
+          console.log(`✅ [AI Engine] Success using Model: ${modelName} (Key Index: ${keyIndex})`);
+          return text;
         }
       } catch (error: any) {
-        // رصد أخطاء الكوتا (429) أو انتهاء الصلاحية
-        const isQuotaError = error?.status === 429 || error?.message?.includes('Quota');
+        // رصد أخطاء الكوتا (429) أو أخطاء الاستخدام
+        const errorMessage = error?.message || '';
+        const isQuotaError = errorMessage.includes('429') || errorMessage.includes('Quota');
         
         console.warn(
-          `⚠️ [AI Engine Warning] Failed with Model ${model} & Key Index ${keyIndex}. ` +
-          `Reason: ${error?.message || 'Unknown Error'}`
+          `⚠️ [AI Engine Warning] Failed with Model ${modelName} & Key Index ${keyIndex}. ` +
+          `Reason: ${errorMessage}`
         );
 
+        // إذا كان خطأ كوتا، نجرب المفتاح التالي لنفس الموديل
         if (isQuotaError && keyIndex < GEMINI_KEYS.length - 1) {
           console.log(`🔄 [Quota Exceeded] Switching to Backup Key [${keyIndex + 1}]...`);
-          continue; // تجربة المفتاح التالي لنفس الموديل
+          continue; 
         }
       }
     }
-    console.log(`⏭️ [Model Exhausted] All keys failed for ${model}. Moving to next model in chain...`);
+    console.log(`⏭️ [Model Exhausted] All keys failed for ${modelName}. Moving to next model...`);
   }
 
   throw new Error("🚨 [AI Engine Fatal] All Gemini models and backup keys have been exhausted.");

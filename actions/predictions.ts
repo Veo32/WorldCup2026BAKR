@@ -52,22 +52,26 @@ export async function processAndPublishPrediction(
       console.error(`[Telegram Error] Failed to send to Telegram, bypassing block:`, tgError.message);
     }
     
-    // 3. ميزة: الاستدعاء الديناميكي المدمج متوافق مع ملف db.ts المطور لمنع أخطاء الـ Compiling في بيئة التطوير
+    // 3. ميزة: الاستدعاء الديناميكي المدمج المتوافق مع الـ Schema المحدثة لجدول Prediction
     let dbSaved = false;
     try {
       const dbModule = await import('@/lib/db').catch(() => null);
       if (dbModule && dbModule.prisma) {
-        await dbModule.prisma.matchAnalysis.upsert({
+        // 💡 استخدام جدول prediction والحقول الصحيحة المطابقة تماماً للـ Schema المتوفرة
+        await dbModule.prisma.prediction.upsert({
           where: { matchId: matchId },
           update: {
-            analysis: JSON.stringify(result.data),
+            analysisResult: JSON.stringify(result.data),
+            modelUsed: result.modelUsed || "gemini-1.5-pro",
+            postedToTg: telegramSent, // حفظ حالة النشر الحقيقية في قاعدة البيانات
             updatedAt: new Date(),
           },
           create: {
             matchId: matchId,
-            homeTeam: homeTeam,
-            awayTeam: awayTeam,
-            analysis: JSON.stringify(result.data),
+            matchName: matchTitle,
+            analysisResult: JSON.stringify(result.data),
+            modelUsed: result.modelUsed || "gemini-1.5-pro",
+            postedToTg: telegramSent,
           },
         });
         dbSaved = true;
