@@ -1,17 +1,26 @@
 'use server'
 
 /**
- * Sends the generated AI sports analysis directly to the premium Telegram channel.
+ * Sends the generated AI sports analysis directly to a user or the premium Telegram channel.
  * @param matchTitle - The name of the match (e.g., "Paraguay vs United States")
  * @param aiAnalysis - The JSON data parsed from Gemini engine containing winProbability, bettingAdvice, and keyPlayer
+ * @param targetChatId - Optional: Send to a specific user Chat ID. If omitted, defaults to PREMIUM_CHANNEL_ID.
  */
-export async function sendPremiumPredictionToTelegram(matchTitle: string, aiAnalysis: any) {
+export async function sendPremiumPredictionToTelegram(matchTitle: string, aiAnalysis: any, targetChatId?: string | number) {
   const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
   const CHANNEL_ID = process.env.TELEGRAM_PREMIUM_CHANNEL_ID;
 
   // حماية إضافية: التأكد من أن الرموز موجودة وليست الرموز الافتراضية المؤقتة
-  if (!BOT_TOKEN || BOT_TOKEN === "YOUR_TELEGRAM_BOT_TOKEN_HERE" || !CHANNEL_ID) {
+  if (!BOT_TOKEN || BOT_TOKEN === "YOUR_TELEGRAM_BOT_TOKEN_HERE") {
     console.error("🛑 Telegram Error: Invalid or missing BOT_TOKEN. Please update your .env file with the real token from BotFather.");
+    return false;
+  }
+
+  // تحديد الوجهة: إما للمستخدم مباشرة أو للقناة كخيار افتراضي
+  const finalChatId = targetChatId || CHANNEL_ID;
+
+  if (!finalChatId) {
+    console.error("🛑 Telegram Error: No target chat_id or channel_id provided.");
     return false;
   }
 
@@ -29,12 +38,11 @@ ${aiAnalysis.bettingAdvice || 'جاري التحليل...'}
   `;
 
   try {
-    // الرابط الصحيح مع كلمة bot مدمجة
     const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chat_id: CHANNEL_ID,
+        chat_id: finalChatId,
         text: message,
         parse_mode: 'Markdown'
       })
@@ -43,10 +51,10 @@ ${aiAnalysis.bettingAdvice || 'جاري التحليل...'}
     if (!response.ok) {
       const errorData = await response.json();
       console.error("🛑 Telegram API Response Error:", errorData);
-      return false; // إرجاع false صريحة لإيقاف رسالة "تم الإرسال بنجاح" الوهمية
+      return false;
     }
 
-    console.log(`✅ [Telegram] VIP Notification dispatched successfully for: ${matchTitle}`);
+    console.log(`✅ [Telegram] Message dispatched successfully to: ${finalChatId} for ${matchTitle}`);
     return true; 
 
   } catch (error) {
