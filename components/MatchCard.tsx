@@ -97,11 +97,7 @@ export default function MatchCard({ match }: { match: any }) {
 
       {/* منطقة أزرار التحكم - أسفل البطاقة */}
       <div className="mt-6 border-t border-slate-700/50 pt-4">
-        <PredictionButton 
-          matchId={match.id} 
-          homeTeam={homeTeamAr} 
-          awayTeam={awayTeamAr}
-        />
+       <PredictionButton match={match} />
       </div>
 
     </div>
