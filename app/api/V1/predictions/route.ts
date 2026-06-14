@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+
 
 // 🔐 الرمز السري لحماية الـ API
 const RAPIDAPI_SECRET = process.env.RAPIDAPI_SECRET || "BAKR_SECRET_KEY_2026";

@@ -1,7 +1,14 @@
-import type { NextConfig } from "next";
+﻿import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async rewrites() {
+    return [
+      {
+        source: '/api/proxy/games',
+        destination: 'https://worldcup26.ir/get/games',
+      },
+    ];
+  },
 };
 
 export default nextConfig;
