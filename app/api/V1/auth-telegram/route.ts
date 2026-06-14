@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,8 +11,6 @@ export async function POST(req: NextRequest) {
       last_name,
       username,
       photo_url,
-      auth_date,
-      hash,
       matchId,
       matchTitle,
     } = body;
@@ -23,10 +19,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing telegram ID' }, { status: 400 });
     }
 
-    // 1. احفظ/حدّث المستخدم في قاعدة البيانات
     let user;
     try {
-      user = await prisma.user.upsert({
+      user = await prisma!.user.upsert({
         where: { telegramId: String(telegramId) },
         update: {
           firstName: first_name || '',
@@ -46,18 +41,15 @@ export async function POST(req: NextRequest) {
         },
       });
     } catch {
-      // إذا فشل Prisma، نكمل بدونه
       user = { telegramId: String(telegramId), isPremium: false };
     }
 
-    // 2. إذا المستخدم premium → أرسل له التحليل مباشرة
     if (user.isPremium) {
-      const chatId = String(telegramId);
       const message = matchTitle
         ? `🔥 *تحليل Pro جاهز!*\n\n📊 *${matchTitle}*\n\nسيصلك التحليل الكامل خلال ثوانٍ...`
         : '🔥 تحليلك Pro جاهز! ستصلك الرسالة الآن.';
 
-      await sendTelegramMessage(chatId, message);
+      await sendTelegramMessage(String(telegramId), message);
 
       return NextResponse.json({
         success: true,
@@ -66,14 +58,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 3. إذا غير premium → أعده لـ Gumroad مع chat_id
     const gumroadUrl = `https://veoquest6.gumroad.com/l/yfhmbt?wanted=true&telegram_id=${telegramId}&match_id=${matchId || ''}`;
 
-    // أرسل له رسالة ترحيب في البوت
     try {
       await sendTelegramMessage(
         String(telegramId),
-        `👋 مرحباً ${first_name || 'بك'}!\n\nلتحصل على التحليل Pro، اشترك عبر الرابط:\n${gumroadUrl}`
+        `👋 مرحباً ${first_name || 'بك'}!\n\nللحصول على التحليل Pro، اشترك عبر الرابط:\n${gumroadUrl}`
       );
     } catch {
       // قد يفشل إذا المستخدم لم يبدأ البوت بعد
@@ -89,8 +79,6 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('auth-telegram error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
