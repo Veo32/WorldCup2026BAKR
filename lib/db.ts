@@ -1,15 +1,20 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 
 const FORCE_DISABLE_DB = false;
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | null };
+
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL ?? '',
+});
 
 export const prisma =
   FORCE_DISABLE_DB
     ? null
     : globalForPrisma.prisma ||
       new PrismaClient({
-        datasourceUrl: process.env.DATABASE_URL,
+        adapter,
         log: [
           { emit: 'stdout', level: 'error' },
           { emit: 'stdout', level: 'warn' },
@@ -17,7 +22,7 @@ export const prisma =
       });
 
 if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma as PrismaClient;
+  globalForPrisma.prisma = prisma;
 }
 
 export const checkDatabaseHealth = async (): Promise<boolean> => {
