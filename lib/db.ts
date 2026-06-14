@@ -2,14 +2,14 @@ import { PrismaClient } from '@prisma/client';
 
 const FORCE_DISABLE_DB = false;
 
-// استخدام نمط Singleton لضمان عدم إنشاء نسخ متعددة في بيئة التطوير
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
 export const prisma =
-  FORCE_DISABLE_DB 
-    ? null 
+  FORCE_DISABLE_DB
+    ? null
     : globalForPrisma.prisma ||
       new PrismaClient({
+        datasourceUrl: process.env.DATABASE_URL,
         log: [
           { emit: 'stdout', level: 'error' },
           { emit: 'stdout', level: 'warn' },
@@ -26,7 +26,7 @@ export const checkDatabaseHealth = async (): Promise<boolean> => {
     await prisma.$queryRaw`SELECT 1`;
     return true;
   } catch (error) {
-    console.error("❌ Database Health Check Failed:", error);
+    console.error("DB health check failed:", error);
     return false;
   }
 };
