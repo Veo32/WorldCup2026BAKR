@@ -2,7 +2,7 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider        = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -63,7 +63,7 @@ model ChannelStat {
   updatedAt    DateTime @updatedAt
 }
 
-// 💰 جدول المبيعات والعمليات لتتبع مشترين تقارير الـ PDF من Gumroad
+// 💰 جدول المبيعات والعمليات لتتبع مشتري تقارير الـ PDF من Gumroad
 model Transaction {
   id            String   @id @default(uuid())
   buyerEmail    String
