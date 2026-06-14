@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { processAndPublishPrediction } from '@/actions/predictions';
 
-// ─── أنواع البيانات ───────────────────────────────────────────────────────────
+// --- أنواع البيانات ---
 interface AnalysisData {
   winProbability: string;
   predictedScore: string;
@@ -19,12 +19,13 @@ interface ProModalProps {
   onClose: () => void;
 }
 
-// ─── مكون: شريط تقدم الاحتمالية ─────────────────────────────────────────────
+type Phase = 'idle' | 'loading' | 'result' | 'publishing' | 'published' | 'error';
+
+// --- مكون: شريط تقدم الاحتمالية ---
 function ProbabilityBar({ label, value, color }: { label: string; value: number; color: string }) {
   const [width, setWidth] = useState(0);
 
   useEffect(() => {
-    // تأخير بسيط لتشغيل animation عند الظهور
     const timer = setTimeout(() => setWidth(value), 100);
     return () => clearTimeout(timer);
   }, [value]);
@@ -43,7 +44,7 @@ function ProbabilityBar({ label, value, color }: { label: string; value: number;
   );
 }
 
-// ─── مكون: قسم تحليل واحد ────────────────────────────────────────────────────
+// --- مكون: قسم تحليل واحد ---
 function AnalysisSection({
   icon,
   title,
@@ -57,7 +58,6 @@ function AnalysisSection({
 }) {
   return (
     <div className="relative bg-slate-900/60 border border-slate-700/50 rounded-xl p-5 overflow-hidden group hover:border-slate-600/50 transition-colors duration-300">
-      {/* خط جانبي ملون */}
       <div
         className="absolute right-0 top-0 bottom-0 w-0.5 rounded-full opacity-60 group-hover:opacity-100 transition-opacity duration-300"
         style={{ backgroundColor: accentColor }}
@@ -73,36 +73,33 @@ function AnalysisSection({
   );
 }
 
-// ─── المكون الرئيسي: ProModal ─────────────────────────────────────────────────
+// --- المكون الرئيسي: ProModal ---
 export default function ProModal({ matchId, homeTeam, awayTeam, onClose }: ProModalProps) {
-  // حالات المكون
-  const [phase, setPhase] = useState<'idle' | 'loading' | 'result' | 'publishing' | 'published' | 'error'>('idle');
+  const [phase, setPhase] = useState<Phase>('idle');
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [modelUsed, setModelUsed] = useState('');
   const [duration, setDuration] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [telegramSent, setTelegramSent] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  // إغلاق عند الضغط خارج النافذة
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === overlayRef.current) onClose();
   };
 
-  // منع scroll الخلفية عند فتح المودال
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
   }, []);
 
-  // إغلاق بـ Escape
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
-  // ─── توليد التحليل ─────────────────────────────────────────────────────────
+  // --- توليد التحليل ---
   const handleGenerate = async () => {
     setPhase('loading');
     setErrorMsg('');
@@ -119,42 +116,42 @@ export default function ProModal({ matchId, homeTeam, awayTeam, onClose }: ProMo
       setDuration(result.duration || '');
       setTelegramSent(result.telegramSent || false);
       setPhase('result');
-    } catch (err: any) {
-      setErrorMsg(err.message || 'حدث خطأ غير متوقع');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'حدث خطأ غير متوقع';
+      setErrorMsg(message);
       setPhase('error');
     }
   };
 
-  // ─── نشر Telegram يدوياً (لو أراد المستخدم إعادة النشر) ────────────────────
+  // --- نشر Telegram يدوياً ---
   const handlePublishTelegram = async () => {
-    if (!analysisData) return;
+    if (!analysisData || isPublishing) return;
+    setIsPublishing(true);
     setPhase('publishing');
     try {
-      // استدعاء مع إعادة النشر فقط — يمكن تحسينه لاحقاً بـ action مستقل
       await processAndPublishPrediction(matchId, homeTeam, awayTeam, { forceTelegram: true });
       setTelegramSent(true);
       setPhase('published');
       setTimeout(() => setPhase('result'), 2000);
     } catch {
       setPhase('result');
+    } finally {
+      setIsPublishing(false);
     }
   };
 
-  // ─── استخراج نسب الفوز من النص (بسيط) ────────────────────────────────────
+  // --- استخراج نسب الفوز ---
   const extractProbabilities = (text: string) => {
-    // محاولة استخراج أرقام من النص مثل 55% أو 55 بالمئة
     const matches = text.match(/(\d{1,3})%|(\d{1,3})\s*بالمئة/g) || [];
     const nums = matches.map(m => parseInt(m.replace('%', '').replace('بالمئة', '').trim()));
 
     if (nums.length >= 3) return { home: nums[0], draw: nums[1], away: nums[2] };
     if (nums.length === 2) return { home: nums[0], draw: 100 - nums[0] - nums[1], away: nums[1] };
-    // قيم افتراضية إذا لم يُعثر على أرقام
     return { home: 45, draw: 25, away: 30 };
   };
 
   const probs = analysisData ? extractProbabilities(analysisData.winProbability) : null;
 
-  // ─── الواجهة ───────────────────────────────────────────────────────────────
   return (
     <div
       ref={overlayRef}
@@ -169,13 +166,14 @@ export default function ProModal({ matchId, homeTeam, awayTeam, onClose }: ProMo
           boxShadow: '0 0 60px rgba(16, 185, 129, 0.08), 0 25px 50px rgba(0,0,0,0.6)',
         }}
       >
-        {/* ─── هيدر النافذة ─────────────────────────────────────────────── */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-slate-700/50"
+        {/* هيدر النافذة */}
+        <div
+          className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-slate-700/50"
           style={{ background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(12px)' }}
         >
           <div className="flex items-center gap-3">
-            {/* شارة PRO */}
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-black tracking-widest"
+            <span
+              className="px-2.5 py-0.5 rounded-full text-xs font-black tracking-widest"
               style={{ background: 'linear-gradient(90deg, #d4af37, #f5d47a)', color: '#0f172a' }}
             >
               PRO
@@ -193,26 +191,25 @@ export default function ProModal({ matchId, homeTeam, awayTeam, onClose }: ProMo
           </button>
         </div>
 
-        {/* ─── المحتوى ──────────────────────────────────────────────────── */}
         <div className="p-6">
 
-          {/* === حالة: الشاشة الابتدائية === */}
+          {/* === حالة: idle === */}
           {phase === 'idle' && (
             <div className="text-center py-8" dir="rtl">
-              {/* أيقونة مركزية */}
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center text-4xl"
-                style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(16,185,129,0.05) 100%)', border: '1px solid rgba(16,185,129,0.2)' }}
+              <div
+                className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center text-4xl"
+                style={{
+                  background: 'radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(16,185,129,0.05) 100%)',
+                  border: '1px solid rgba(16,185,129,0.2)',
+                }}
               >
                 🤖
               </div>
-
               <h3 className="text-white text-xl font-bold mb-3">تحليل Pro بالذكاء الاصطناعي</h3>
               <p className="text-slate-400 text-sm mb-6 leading-relaxed max-w-md mx-auto">
                 سيتم توليد تحليل شامل يتضمن: احتماليات الفوز، التوقع التكتيكي، نجم المباراة،
-                والتوقع المتقدم — ثم إرساله تلقائياً لقناة Telegram VIP.
+                والتوقع المتقدم – ثم إرساله تلقائياً لقناة Telegram VIP.
               </p>
-
-              {/* ما يتضمنه التحليل */}
               <div className="grid grid-cols-2 gap-3 mb-8 text-right">
                 {[
                   { icon: '📊', text: 'احتماليات الفوز المفصّلة' },
@@ -220,52 +217,44 @@ export default function ProModal({ matchId, homeTeam, awayTeam, onClose }: ProMo
                   { icon: '🧠', text: 'التحليل التكتيكي العميق' },
                   { icon: '🌟', text: 'نجم المباراة المتوقع' },
                 ].map(({ icon, text }) => (
-                  <div key={text} className="flex items-center gap-2 bg-slate-800/50 rounded-lg px-3 py-2.5 text-sm text-slate-300 border border-slate-700/30">
+                  <div
+                    key={text}
+                    className="flex items-center gap-2 bg-slate-800/50 rounded-lg px-3 py-2.5 text-sm text-slate-300 border border-slate-700/30"
+                  >
                     <span>{icon}</span>
                     <span>{text}</span>
                   </div>
                 ))}
               </div>
-
-              {/* زر التوليد */}
               <button
                 onClick={handleGenerate}
-                className="relative w-full py-4 rounded-xl font-black text-base tracking-wide overflow-hidden group transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                className="relative w-full py-4 rounded-xl font-black text-base tracking-wide overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                 style={{
                   background: 'linear-gradient(135deg, #059669 0%, #10B981 50%, #34D399 100%)',
                   color: '#0f172a',
                   boxShadow: '0 0 30px rgba(16, 185, 129, 0.3)',
                 }}
               >
-                <span className="relative z-10">🚀 توليد التحليل ونشره الآن</span>
+                🚀 توليد التحليل ونشره الآن
               </button>
-
-              {/* إشعار Telegram */}
               <p className="text-slate-600 text-xs mt-3">
                 سيُرسل التحليل تلقائياً لقناة Telegram VIP عند التوليد
               </p>
             </div>
           )}
 
-          {/* === حالة: التحميل === */}
+          {/* === حالة: loading === */}
           {phase === 'loading' && (
             <div className="text-center py-12" dir="rtl">
-              {/* دائرة تحميل مخصصة */}
               <div className="w-20 h-20 mx-auto mb-8 relative">
                 <div className="absolute inset-0 rounded-full border-2 border-slate-700" />
                 <div
                   className="absolute inset-0 rounded-full border-2 border-transparent"
-                  style={{
-                    borderTopColor: '#10B981',
-                    animation: 'spin 1s linear infinite',
-                  }}
+                  style={{ borderTopColor: '#10B981', animation: 'spin 1s linear infinite' }}
                 />
                 <div className="absolute inset-3 rounded-full flex items-center justify-center text-2xl">🧠</div>
               </div>
-
               <h3 className="text-white text-lg font-bold mb-2">الذكاء الاصطناعي يحلل...</h3>
-
-              {/* خطوات التحليل */}
               <div className="space-y-2 max-w-xs mx-auto mt-6">
                 {[
                   'تحليل إحصائيات الفريقين',
@@ -290,7 +279,6 @@ export default function ProModal({ matchId, homeTeam, awayTeam, onClose }: ProMo
                   </div>
                 ))}
               </div>
-
               <style>{`
                 @keyframes spin { to { transform: rotate(360deg); } }
                 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
@@ -299,13 +287,13 @@ export default function ProModal({ matchId, homeTeam, awayTeam, onClose }: ProMo
             </div>
           )}
 
-          {/* === حالة: الخطأ === */}
+          {/* === حالة: error === */}
           {phase === 'error' && (
             <div className="text-center py-10" dir="rtl">
               <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl bg-red-500/10 border border-red-500/20">
                 ❌
               </div>
-              <h3 className="text-red-400 font-bold text-lg mb-2">فشل التوليد</h3>
+              <h3 className="text-white text-lg font-bold mb-2">فشل التوليد</h3>
               <p className="text-slate-500 text-sm mb-6 max-w-sm mx-auto">{errorMsg}</p>
               <button
                 onClick={handleGenerate}
@@ -316,12 +304,13 @@ export default function ProModal({ matchId, homeTeam, awayTeam, onClose }: ProMo
             </div>
           )}
 
-          {/* === حالة: النتيجة === */}
+          {/* === حالة: result / publishing / published === */}
           {(phase === 'result' || phase === 'publishing' || phase === 'published') && analysisData && (
             <div dir="rtl" className="space-y-5">
 
-              {/* ─── بانر النجاح ─────────────────────────────────────── */}
-              <div className="flex items-center justify-between p-3 rounded-xl text-sm"
+              {/* بانر النجاح */}
+              <div
+                className="flex items-center justify-between p-3 rounded-xl text-sm"
                 style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)' }}
               >
                 <div className="flex items-center gap-2 text-emerald-400">
@@ -345,7 +334,7 @@ export default function ProModal({ matchId, homeTeam, awayTeam, onClose }: ProMo
                 </div>
               </div>
 
-              {/* ─── شريط احتماليات الفوز ────────────────────────────── */}
+              {/* شريط الاحتماليات */}
               {probs && (
                 <div className="bg-slate-900/60 border border-slate-700/50 rounded-xl p-5">
                   <div className="flex items-center gap-2 mb-4">
@@ -360,14 +349,19 @@ export default function ProModal({ matchId, homeTeam, awayTeam, onClose }: ProMo
                 </div>
               )}
 
-              {/* ─── النتيجة المتوقعة (بطاقة مميزة) ────────────────── */}
-              <div className="relative rounded-xl p-5 text-center overflow-hidden"
-                style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.08) 0%, rgba(212,175,55,0.03) 100%)', border: '1px solid rgba(212,175,55,0.2)' }}
+              {/* النتيجة المتوقعة */}
+              <div
+                className="relative rounded-xl p-5 text-center overflow-hidden"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(212,175,55,0.08) 0%, rgba(212,175,55,0.03) 100%)',
+                  border: '1px solid rgba(212,175,55,0.2)',
+                }}
               >
                 <p className="text-xs text-yellow-600 uppercase tracking-widest mb-3 font-bold">النتيجة المتوقعة</p>
                 <div className="flex items-center justify-center gap-4">
                   <span className="text-white font-bold text-sm">{homeTeam}</span>
-                  <span className="text-3xl font-black"
+                  <span
+                    className="text-3xl font-black"
                     style={{ color: '#d4af37', textShadow: '0 0 20px rgba(212,175,55,0.3)' }}
                   >
                     {analysisData.predictedScore}
@@ -376,21 +370,19 @@ export default function ProModal({ matchId, homeTeam, awayTeam, onClose }: ProMo
                 </div>
               </div>
 
-              {/* ─── أقسام التحليل ───────────────────────────────────── */}
+              {/* أقسام التحليل */}
               <AnalysisSection
                 icon="🧠"
                 title="التحليل التكتيكي"
                 content={analysisData.tacticalKey}
                 accentColor="#8B5CF6"
               />
-
               <AnalysisSection
                 icon="💡"
                 title="التوقع المتقدم (حصري Pro)"
                 content={analysisData.bettingAdvice}
                 accentColor="#d4af37"
               />
-
               <AnalysisSection
                 icon="🌟"
                 title="نجم المباراة المتوقع"
@@ -398,12 +390,12 @@ export default function ProModal({ matchId, homeTeam, awayTeam, onClose }: ProMo
                 accentColor="#10B981"
               />
 
-              {/* ─── زر إعادة النشر لـ Telegram ─────────────────────── */}
+              {/* زر النشر في Telegram */}
               {!telegramSent && phase === 'result' && (
                 <button
                   onClick={handlePublishTelegram}
-                  disabled={phase === 'publishing'}
-                  className="w-full py-3 rounded-xl text-sm font-bold border transition-all duration-300"
+                  disabled={isPublishing}
+                  className="w-full py-3 rounded-xl text-sm font-bold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     background: 'rgba(37, 99, 235, 0.08)',
                     border: '1px solid rgba(37, 99, 235, 0.25)',
@@ -421,14 +413,19 @@ export default function ProModal({ matchId, homeTeam, awayTeam, onClose }: ProMo
               )}
 
               {phase === 'published' && (
-                <div className="w-full py-3 rounded-xl text-sm text-center font-bold"
-                  style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: '#10B981' }}
+                <div
+                  className="w-full py-3 rounded-xl text-sm text-center font-bold"
+                  style={{
+                    background: 'rgba(16,185,129,0.08)',
+                    border: '1px solid rgba(16,185,129,0.2)',
+                    color: '#10B981',
+                  }}
                 >
                   ✅ تم النشر في Telegram بنجاح
                 </div>
               )}
 
-              {/* ─── زر توليد جديد ───────────────────────────────────── */}
+              {/* زر توليد جديد */}
               <button
                 onClick={handleGenerate}
                 className="w-full py-2.5 rounded-xl text-xs text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 transition-all duration-200"
