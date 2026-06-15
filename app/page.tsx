@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect } from 'react';
 import MatchCard from "@/components/MatchCard";
 
@@ -10,29 +10,53 @@ export default function Home() {
   const [isToday, setIsToday] = useState(false);
 
   useEffect(() => {
-  fetch('https://worldcup26.ir/get/games')
-    .then(r => r.json())
-    .then(data => {
-      const arr: any[] = data.games ? Object.values(data.games) : [];
-      const today = new Date().toISOString().split('T')[0];
-      const todayGames = arr.filter((m: any) => (m.local_date || '').split(' ')[0] === today);
-      const upcoming = arr.filter((m: any) => m.finished !== 'TRUE').slice(0, 6);
-      const games = todayGames.length > 0 ? todayGames : upcoming;
-      setGames(games);
-      setTotal(arr.length);
-      setIsToday(todayGames.length > 0);
-      setLoading(false);
-    })
-    .catch(() => {
-      setError(true);
-      setLoading(false);
-    });
-}, []);
+    fetch('/api/proxy/games')
+      .then(r => r.json())
+      .then(data => {
+        const arr: any[] = data.games ? Object.values(data.games) : [];
+
+        // Get today's date in Asia/Jerusalem timezone (Palestine)
+        const today = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Jerusalem',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(new Date());
+
+        const todayGames = arr.filter((m: any) => (m.local_date || m.date || '').split(' ')[0] === today);
+
+        let games: any[];
+        if (todayGames.length > 0) {
+          // عرض مباريات اليوم
+          games = todayGames;
+          setIsToday(true);
+        } else {
+          // لا توجد مباريات اليوم — عرض آخر 6 مباريات منتهية
+          const finished = arr
+            .filter((m: any) => m.finished?.toUpperCase() === 'TRUE')
+            .sort((a: any, b: any) => {
+              const da = new Date(a.local_date || a.date || '').getTime();
+              const db = new Date(b.local_date || b.date || '').getTime();
+              return db - da; // الأحدث أولاً
+            })
+            .slice(0, 6);
+          games = finished;
+          setIsToday(false);
+        }
+
+        setGames(games);
+        setTotal(arr.length);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
+  }, []);
 
   return (
     <div className="space-y-8 mt-4">
 
-      {/* Header */}
       <div className="flex flex-col gap-2">
         <h1 className="text-4xl font-bold text-white tracking-tight">
           تحليلات <span className="text-emerald-400">كأس العالم 2026</span>
@@ -47,25 +71,18 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── Pro Banner ── يظهر دائماً */}
       <div className="relative overflow-hidden rounded-2xl border border-amber-500/40 bg-gradient-to-l from-amber-950/40 to-slate-900 p-5 md:p-6">
-        {/* خلفية زخرفية */}
         <div className="absolute -left-6 -top-6 text-amber-500/5 text-[160px] select-none pointer-events-none">🏆</div>
-
         <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               <span className="bg-amber-500 text-black text-xs font-black px-2.5 py-0.5 rounded-full">PRO</span>
               <span className="text-amber-400 text-xs font-medium">تحليل مدعوم بالذكاء الاصطناعي</span>
             </div>
-            <h2 className="text-white font-bold text-xl mb-1">
-              حوّل كل مباراة إلى فرصة ذكية
-            </h2>
+            <h2 className="text-white font-bold text-xl mb-1">حوّل كل مباراة إلى فرصة ذكية</h2>
             <p className="text-slate-400 text-sm leading-relaxed max-w-md">
-              تحليل عميق بالـ AI، إحصائيات تفصيلية، وتقرير PDF — يصلك مباشرة على تليجرام قبل صافرة البداية.
+              تحليل عميق بالـ AI، إحصائيات تفصيلية، وتقرير PDF - يصلك مباشرة على تليجرام قبل صافرة البداية.
             </p>
-
-            {/* مميزات سريعة */}
             <div className="flex flex-wrap gap-2 mt-3">
               {[
                 { icon: '🤖', label: 'تحليل AI' },
@@ -80,24 +97,20 @@ export default function Home() {
               ))}
             </div>
           </div>
-
-          {/* CTA */}
           <div className="flex flex-col items-stretch md:items-end gap-2 min-w-[180px]">
             <a
               href="https://t.me/WorldCup2026Bakrbot?start=subscribe"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 py-3 px-5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-sm hover:from-amber-400 hover:to-orange-400 transition-all hover:scale-[1.02] shadow-lg shadow-amber-900/30"
-            >
+              className="flex items-center justify-center gap-2 py-3 px-5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-sm hover:from-amber-400 hover:to-orange-400 transition-all hover:scale-[1.02] shadow-lg shadow-amber-900/30">
               <span>🔥</span>
-              <span>اشترك بـ Pro — $4.99</span>
+              <span>اشترك بـ Pro - $4.99</span>
             </a>
             <a
               href="https://t.me/WorldCup2026Bakrbot"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-slate-600 text-slate-300 text-sm hover:border-slate-400 hover:text-white transition-all text-center"
-            >
+              className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-slate-600 text-slate-300 text-sm hover:border-slate-400 hover:text-white transition-all text-center">
               <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current text-[#229ED9]" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L8.32 13.617l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.828.942z"/>
               </svg>
@@ -108,39 +121,37 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Dashboard Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 h-32 flex flex-col justify-center shadow-lg relative overflow-hidden group hover:border-emerald-500/30 transition-colors">
           <div className="absolute -right-4 -top-4 text-yellow-500/10 text-9xl group-hover:scale-110 transition-transform duration-500">🏆</div>
           <p className="text-slate-400 text-sm font-medium relative z-10">إجمالي مباريات البطولة</p>
           <p className="text-4xl font-bold text-white mt-2 relative z-10">{total}</p>
         </div>
-
         <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6 h-32 flex flex-col items-center justify-center shadow-lg relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-transparent opacity-50"></div>
           <p className="text-slate-500 text-sm font-medium animate-pulse">جاري تجهيز ترتيب المجموعات...</p>
         </div>
-
         <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6 h-32 flex flex-col items-center justify-center shadow-lg relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-transparent opacity-50"></div>
           <p className="text-slate-500 text-sm font-medium animate-pulse">جاري تجهيز إحصائيات الهدافين...</p>
         </div>
       </div>
 
-      {/* Matches Grid */}
       <div className="pt-8 border-t border-slate-800/50">
         <div className="flex justify-between items-end mb-6">
           <div>
             <h2 className="text-2xl font-bold text-white tracking-wide">
-              {loading ? 'جاري التحميل...' : isToday ? `مباريات اليوم (${games.length})` : `مباريات قادمة (${games.length})`}
+              {loading
+                ? 'جاري التحميل...'
+                : isToday
+                  ? `مباريات اليوم (${games.length})`
+                  : `آخر النتائج (${games.length})`}
             </h2>
             {!loading && !isToday && games.length > 0 && (
-              <p className="text-slate-500 text-xs mt-1">لا توجد مباريات اليوم — عرض أقرب المباريات القادمة</p>
+              <p className="text-slate-500 text-xs mt-1">لا توجد مباريات اليوم - عرض آخر النتائج</p>
             )}
           </div>
-          <span className="text-sm text-emerald-400 bg-emerald-400/10 px-3 py-1 rounded-full border border-emerald-400/20">
-            مباشر
-          </span>
+          <span className="text-sm text-emerald-400 bg-emerald-400/10 px-3 py-1 rounded-full border border-emerald-400/20">مباشر</span>
         </div>
 
         {loading ? (
@@ -166,7 +177,6 @@ export default function Home() {
             ))}
           </div>
         ) : games.length === 0 ? (
-          /* لا توجد مباريات — اعرض Pro CTA بدل الفراغ */
           <div className="text-center py-16">
             <p className="text-4xl mb-3">⚽</p>
             <p className="text-slate-400 mb-2">لا توجد مباريات مجدولة اليوم</p>
@@ -175,8 +185,7 @@ export default function Home() {
               href="https://t.me/WorldCup2026Bakrbot?start=subscribe"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 py-3 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-sm hover:from-amber-400 hover:to-orange-400 transition-all"
-            >
+              className="inline-flex items-center gap-2 py-3 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-sm hover:from-amber-400 hover:to-orange-400 transition-all">
               🔥 اشترك في Pro الآن
             </a>
           </div>
